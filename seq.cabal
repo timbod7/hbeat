@@ -1,0 +1,10 @@
+Name:           Seq
+Version:        0.1
+License:        AllRightsReserved
+Author:         Tim Docker
+Build-Depends:  base, containers, OpenGL, GLUT
+Synopsis:       A simple step sequencer GUI.
+
+Executable:     seq
+Main-Is:        Main.hs
+Extra-Libraries: glut

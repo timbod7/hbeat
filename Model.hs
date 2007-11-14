@@ -29,20 +29,20 @@ nextEvent :: Model -> (Model,[Action])
 nextEvent m = (m{m_clock=now'},actions)
 
   where
-    (now',actions) = fromJust $ chooseActions [ (tRedraw,[Repaint]),
-                                                (tRefresh,[FlipBuffer]),
-                                                (tStep,nextTriggers) ]
+    (now',actions) = fromJust $ chooseActions [ nextRepaint,
+                                                nextRefresh,
+                                                nextTriggers ]
     now = m_clock m
-    (tRedraw,_) = nextT (m_refreshTime m) (m_repaintOffset m) now
-    (tRefresh,_) = nextT (m_refreshTime m) 0 now
-    (tStep,si) = nextT (m_stepTime m) 0 now
-    nextStepID = si `mod` m_stepRange m
-    nextTriggers = [Play cid | cid <- m_channels m, Set.member (nextStepID,cid) (m_triggers m)] 
+    nextRepaint = next (m_refreshTime m) (m_repaintOffset m) (const [Repaint])
+    nextRefresh = next (m_refreshTime m) 0 (const [FlipBuffer])
+    nextTriggers = next (m_stepTime m)  0 getTriggers
 
-nextT :: TimeInterval -> TimeInterval -> Time -> (Time,Int)
-nextT period offset now = (i * period + offset,i)
-  where
-    i = (now - offset) `div` period + 1
+    getTriggers si = [Play cid | cid <- m_channels m, Set.member (si,cid) (m_triggers m)]
+
+    next :: TimeInterval -> TimeInterval -> (Int -> [Action]) -> (Time,[Action])
+    next period offset afn = (i * period + offset,afn i)
+      where
+        i = (now - offset) `div` period + 1
 
 chooseActions :: [ (Time,[Action]) ] -> Maybe (Time,[Action])
 chooseActions = foldr f Nothing
@@ -59,14 +59,19 @@ test_model = Model {
         (0,0),
         (4,0),
                  (10,1),
+                 (10,2),
+                 (10,3),
         (8,0),
         (12,0),
-                 (14,1)
+                 (14,1),
+                 (14,2),
+                 (14,3),
+                 (15,3)
     ],
     m_stepTime = 100,
     m_refreshTime = 25,
     m_repaintOffset = (-5),
-    m_clock = (-26)
+    m_clock = (-10)
 }
 
 events :: Model -> [ (Time,[Action]) ]
