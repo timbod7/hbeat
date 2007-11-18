@@ -37,7 +37,7 @@ nextEvent m = (m{m_clock=now'},actions)
     nextRefresh = next (m_refreshTime m) 0 (const [FlipBuffer])
     nextTriggers = next (m_stepTime m)  0 getTriggers
 
-    getTriggers si = [Play cid | cid <- m_channels m, Set.member (si,cid) (m_triggers m)]
+    getTriggers si = [Play cid | cid <- m_channels m, Set.member (si `mod`m_stepRange m,cid) (m_triggers m)]
 
     next :: TimeInterval -> TimeInterval -> (Int -> [Action]) -> (Time,[Action])
     next period offset afn = (i * period + offset,afn i)

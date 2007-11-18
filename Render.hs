@@ -18,34 +18,48 @@ render r m = do
     channels = length (m_channels m)
 
     drawTimeMarker :: IO ()
-    drawTimeMarker = fillRoundedRect mcolor radius box
+    drawTimeMarker = do
+        fillRoundedRect mcolor radius box
       where
         box = (Vertex2 x y, Vertex2 (x+w) (y+h))
         x,y :: GLdouble
-        x =  edgeMargin + (t - fi (floor t)) / period - gap/2
+        x =  edgeMargin + fi (t `mod` period) / fi period * (bwidth+gap) * fi steps
         w = bwidth+gap
         y =  edgeMargin - gap/2
         h = fi channels*(bheight+gap)
-        t = fi (m_clock m) / period
-        period = fi (m_stepRange m * m_stepTime m)
+        t = m_clock m
+        period = m_stepRange m * m_stepTime m
 
     drawButton :: (StepID,ChannelID) -> IO ()
     drawButton (s,c) = when active (fillRoundedRect bcolor radius box)
       where
+        box = buttonBox r m (s,c)
         active = Set.member (s,c) (m_triggers m)
-        x = edgeMargin + (fi s) * (gap+bwidth)
-        y = edgeMargin + (fi c) * (gap+bheight)
-        box = (Vertex2 x y, Vertex2 (x+bwidth) (y+bheight))
 
-    edgeMargin = 10
-    gap = 10
     radius = 5
     mcolor = Color3 0.5 0.5 0.5
     bcolor = Color3 0 0.8 0.8
 
-    bwidth = let n = fi steps in (width r - 2*edgeMargin - (n-1)*gap)/ n
-    bheight = let n = fi channels in (height r - 2*edgeMargin - (n-1)*gap)/ n
-    fi = fromIntegral
+    (bwidth,bheight) = bsize r m
+
+buttonBox :: Rect -> Model -> (StepID,ChannelID) -> Rect
+buttonBox r m (s,c) = (Vertex2 x y, Vertex2 (x+bw) (y+bh))
+  where
+    x = edgeMargin + (fi s) * (gap+bw)
+    y = edgeMargin + (fi c) * (gap+bh)
+    (bw,bh) = bsize r m
+
+bsize :: Rect -> Model -> (GLdouble,GLdouble)
+bsize r m = (bw,bh)
+  where
+    bw = let n = fi (m_stepRange m) in (width r - 2*edgeMargin - (n-1)*gap)/ n
+    bh = let n = fi (length (m_channels m)) in (height r - 2*edgeMargin - (n-1)*gap)/ n
+
+edgeMargin = 10
+gap = 10
+
+fi :: (Num b, Integral a) => a -> b
+fi = fromIntegral
 
 width, height :: Rect -> GLdouble
 width  (Vertex2 v1 _,Vertex2 v2 _) = v2 - v1
