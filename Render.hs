@@ -61,13 +61,17 @@ render sz m = do
         period = m_stepRange m * m_stepTime m
 
     drawButton :: (StepID,ChannelID) -> IO ()
-    drawButton (s,c) = when active (fillRoundedRect bcolor radius (g_bbox g (s,c)))
+    drawButton (s,c) = if active
+                           then fillRoundedRect bcolor2 radius bbox
+                           else lineRoundedRect bcolor1 radius bbox
       where
+        bbox = g_bbox g (s,c)
         active = Set.member (s,c) (m_triggers m)
 
     radius = 5
     mcolor = Color3 0.5 0.5 0.5
-    bcolor = Color3 0 0.8 0.8
+    bcolor1 = Color3 0 0.5 0.5
+    bcolor2 = Color3 0 0.8 0.8
 
     (bwidth,bheight) = (g_bwidth g, g_bheight g)
 
@@ -78,18 +82,20 @@ width, height :: Rect -> GLdouble
 width  (Vertex2 v1 _,Vertex2 v2 _) = v2 - v1
 height (Vertex2 _ v1,Vertex2 _ v2) = v2 - v1
 
-fillRoundedRect :: Color3 GLdouble -> GLdouble -> Rect -> IO ()
-fillRoundedRect c radius (v1@(Vertex2 x1 y1),v3@(Vertex2 x2 y2)) = do
-    renderPrimitive Polygon $ do
-        color $ c
-        vertex $ v1
-        vertex $ v2
-        vertex $ v3
-        vertex $ v4
-  where
-    v2 = Vertex2 x2 y1
-    v4 = Vertex2 x1 y2
+fillRoundedRect c r rect = renderPrimitive Polygon (roundedRectPath c r rect)
+lineRoundedRect c r rect = renderPrimitive LineLoop (roundedRectPath c r rect)
 
+roundedRectPath :: Color3 GLdouble -> GLdouble -> Rect -> IO ()
+roundedRectPath c r (Vertex2 x1 y1,Vertex2 x2 y2) = do
+        color $ c
+        vertex $ Vertex2 (x1+r) y1
+        vertex $ Vertex2 (x2-r) y1
+        vertex $ Vertex2 x2 (y1+r)
+        vertex $ Vertex2 x2 (y2-r)
+        vertex $ Vertex2 (x2-r) y2
+        vertex $ Vertex2 (x1+r) y2
+        vertex $ Vertex2 x1 (y2-r)
+        vertex $ Vertex2 x1 (y1+r)
 
 inBox :: Point -> Rect -> Bool
 inBox (Vertex2 x y) (Vertex2 x0 y0, Vertex2 x1 y1)  = 
