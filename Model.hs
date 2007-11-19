@@ -8,10 +8,12 @@ type StepID = Int
 type Time = Int
 type TimeInterval = Int
 
+type Trigger = (StepID,ChannelID)
+
 data Model = Model {
     m_channels :: [ChannelID],
     m_stepRange :: StepID,
-    m_triggers :: Set.Set (StepID,ChannelID),
+    m_triggers :: Set.Set Trigger,
 
     m_stepTime :: TimeInterval,
     m_refreshTime :: TimeInterval,
@@ -77,3 +79,15 @@ test_model = Model {
 events :: Model -> [ (Time,[Action]) ]
 events m = let (m',a) = nextEvent m in (m_clock m',a):events m'
 
+allTriggers :: Model -> [Trigger]
+allTriggers m = [(s,c) | s <- [0..steps-1], c <- [0..channels-1]]
+  where 
+    steps = m_stepRange m
+    channels = length (m_channels m)
+
+updateTrigger :: (Bool -> Bool) -> Trigger -> Model -> Model
+updateTrigger ufn t m = if ufn (Set.member t ts)
+                            then m{m_triggers=Set.insert t ts}
+                            else m{m_triggers=Set.delete t ts}
+  where
+    ts = m_triggers m    

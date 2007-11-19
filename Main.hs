@@ -2,6 +2,7 @@ import Graphics.Rendering.OpenGL
 import Graphics.UI.GLUT
 import Data.IORef
 import System.Time
+import Control.Monad
 
 import Model
 import Render
@@ -59,20 +60,30 @@ reshape stv s = do
     viewport $= (Position 0 0, s)
     postRedisplay Nothing
 
-keymouse stv key keystate modifiers pos = do
-    print (key,keystate,modifiers,pos)
+keymouse stv (MouseButton LeftButton) Down modifiers (Position x y) = do
+    st <- readIORef stv
+    let m0 = model st
+    let g = geometry (window_size st) m0
+    let m' = foldr (bfn g) m0 (allTriggers m0)
+    writeIORef stv st{model=m'}
+  where
+    p = Vertex2 (fi x) (fi y)
+    bfn :: Geometry -> Trigger -> Model -> Model
+    bfn g t m = if inBox p (g_bbox g t)
+                    then updateTrigger not t m
+                    else m
+    
+keymouse stv key keystate modifiers pos = return ()
 
 display stv = do
     st <- readIORef stv
-    let (Size wWidthi wHeighti) = window_size st
-    let wWidth = fromIntegral wWidthi
-    let wHeight = fromIntegral wHeighti
+    let sz@(Size wWidth wHeight) = window_size st
     matrixMode $= Projection
     loadIdentity
-    ortho2D 0 wWidth 0 wHeight
+    ortho2D 0 (fi wWidth) (fi wHeight) 0
     clear [ColorBuffer]
     preservingMatrix $ do
-        render (Vertex2 0 0, Vertex2 wWidth wHeight) (model st)
+        render sz (model st)
     flush
 
 tnow :: ClockTime -> IO Time
