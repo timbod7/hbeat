@@ -41,7 +41,9 @@ render sz m = do
     mapM_ drawButton (allTriggers m)
   where 
     steps = m_stepRange m
+    stepTime = m_stepTime m
     channels = length (m_channels m)
+    period = steps * stepTime
 
     g = geometry sz m
     em = g_edgeMargin g
@@ -58,11 +60,10 @@ render sz m = do
         y =  em - gap/2
         h = fi channels*(bheight+gap)
         t = m_clock m
-        period = m_stepRange m * m_stepTime m
 
     drawButton :: (StepID,ChannelID) -> IO ()
     drawButton (s,c) = if active
-                           then fillRoundedRect bcolor2 radius bbox
+                           then fillRoundedRect (bcolorf s) radius bbox
                            else lineRoundedRect bcolor1 radius bbox
       where
         bbox = g_bbox g (s,c)
@@ -71,7 +72,13 @@ render sz m = do
     radius = 5
     mcolor = Color3 0.5 0.5 0.5
     bcolor1 = Color3 0 0.5 0.5
-    bcolor2 = Color3 0 0.8 0.8
+    bcolor2a = Color3 0.0 0.8 0.8
+    bcolor2b = Color3 1.0 0.5 0.5
+    bcolorf s = if t >= 0 && t <= fade
+                  then blendc (fi t / fi fade) bcolor2a bcolor2b
+                  else bcolor2a
+      where t = (m_clock m `mod` period) - s * stepTime
+            fade = stepTime * 4
 
     (bwidth,bheight) = (g_bwidth g, g_bheight g)
 
@@ -97,6 +104,11 @@ roundedRectPath c r (Vertex2 x1 y1,Vertex2 x2 y2) = do
         vertex $ Vertex2 x1 (y2-r)
         vertex $ Vertex2 x1 (y1+r)
 
+blendc :: GLdouble -> Color3 GLdouble -> Color3 GLdouble -> Color3 GLdouble
+blendc f (Color3 r1 g1 b1) (Color3 r2 g2 b2) =
+  let f' = 1-f in Color3 (f*r1+f'*r2) (f*g1+f'*g2) (f*b1+f'*b2)
+
 inBox :: Point -> Rect -> Bool
 inBox (Vertex2 x y) (Vertex2 x0 y0, Vertex2 x1 y1)  = 
     (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1)
+

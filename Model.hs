@@ -70,7 +70,7 @@ test_model = Model {
                  (14,3),
                  (15,3)
     ],
-    m_stepTime = 100,
+    m_stepTime = 150,
     m_refreshTime = 25,
     m_repaintOffset = (-5),
     m_clock = (-10)
