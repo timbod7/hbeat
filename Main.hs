@@ -1,5 +1,5 @@
 import Graphics.Rendering.OpenGL
-import Graphics.UI.GLUT
+import qualified Graphics.UI.SDL as SDL
 import Data.IORef
 import System.Time
 import Control.Monad
@@ -15,52 +15,67 @@ data State = State {
 
 main = do
     let m = test_model
-    (progname, _) <- getArgsAndInitialize
-    initialDisplayMode $= [DoubleBuffered]
-  
+    let width = 50 * m_stepRange m
+    let height = 50 * (length (m_channels m))
 
-    createWindow "Steps"
-    windowSize $= Size (fi (50 * m_stepRange m))
-                       (fi (50 * (length (m_channels m))))
+    SDL.init [SDL.InitEverything]
+    vinfo <- SDL.getVideoInfo
+    SDL.glSetAttribute SDL.glRedSize 8
+    SDL.glSetAttribute SDL.glGreenSize 8
+    SDL.glSetAttribute SDL.glBlueSize 8
+    SDL.glSetAttribute SDL.glDepthSize 16
+    SDL.glSetAttribute SDL.glDoubleBuffer 1
+    setVideoMode width height
+
     t0 <- getClockTime
-    stv <- newIORef (State (tnow t0) m (Size 0 0))
-    displayCallback $= display stv
-    reshapeCallback $= Just (reshape stv)
-    keyboardMouseCallback $= Just (keymouse stv)
-    createEventTimeout stv
-    mainLoop
-    
-createEventTimeout stv = do
-    st <- readIORef stv
-    let (m,actions) = nextEvent (model st)
-    writeIORef stv st{model=m}
-    t <- now st
-    let td = m_clock m - t
-    if td <= 0 
-      then do
-        processEvents stv actions
-        createEventTimeout stv
-      else do 
-        addTimerCallback td $ do
-            processEvents stv actions
-            createEventTimeout stv
-    return ()
+ 
+    let (m',actions) = nextEvent m
+    stv <- newIORef (State (tnow t0) m' (Size (fi width) (fi height)))
+    mainLoop (m_clock m',actions) stv
 
-processEvents stv actions = do
+setVideoMode width height =
+    SDL.setVideoMode width height 32 [SDL.OpenGL,SDL.Resizable]
+
+mainLoop (t1,actions) stv = do
+    st <- readIORef stv
+    t2 <- now st
+    (t1',actions') <-
+      if (t1 - t2 <= 0)
+        then do processActions stv actions
+                let (m',actions') = nextEvent (model st)
+                writeIORef stv st{model=m'}
+                return (m_clock m',actions')
+        else return (t1,actions)
+
+    SDL.delay 10
+    ev <- SDL.pollEvent
+    finished <- case ev of
+      (SDL.VideoResize w h) -> do
+          modifyIORef stv (\st -> st{window_size=(Size (fi w) (fi h))})
+          setVideoMode w h
+          redraw
+      (SDL.MouseButtonDown x y SDL.ButtonLeft) -> do
+          mouseClick stv x y
+          redraw                 
+      SDL.VideoExpose -> redraw
+      SDL.Quit -> return True
+      _ -> return False
+    when (not finished) (mainLoop (t1',actions') stv)
+  where
+    redraw = do
+      display stv
+      SDL.glSwapBuffers
+      return False
+
+processActions stv actions = do
     mapM_ doAction actions
   where
-    doAction Repaint = do
-        st <- readIORef stv
-        postRedisplay Nothing
-    doAction FlipBuffer = swapBuffers
     doAction a@(Play _) = print a
+    doAction Repaint = display stv
+    doAction FlipBuffer = SDL.glSwapBuffers
 
-reshape stv s = do
-    modifyIORef stv (\st -> st{window_size=s})
-    viewport $= (Position 0 0, s)
-    postRedisplay Nothing
 
-keymouse stv (MouseButton LeftButton) Down modifiers (Position x y) = do
+mouseClick stv x y = do
     st <- readIORef stv
     let m0 = model st
     let g = geometry (window_size st) m0
@@ -73,11 +88,10 @@ keymouse stv (MouseButton LeftButton) Down modifiers (Position x y) = do
                     then updateTrigger not t m
                     else m
     
-keymouse stv key keystate modifiers pos = return ()
-
 display stv = do
     st <- readIORef stv
     let sz@(Size wWidth wHeight) = window_size st
+    viewport $= (Position 0 0, sz)
     matrixMode $= Projection
     loadIdentity
     ortho2D 0 (fi wWidth) (fi wHeight) 0
