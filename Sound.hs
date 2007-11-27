@@ -9,7 +9,7 @@ type SoundState = IORef [ Mix.Chunk ]
 
 initSound :: [FilePath] -> IO SoundState
 initSound soundFiles = do
-    Mix.openAudio 22050 AudioS16Sys 2 4096
+    Mix.openAudio 44100 AudioS16Sys 2 4096
     sounds <- mapM Mix.loadWAV soundFiles
     newIORef sounds
 
