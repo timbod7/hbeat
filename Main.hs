@@ -6,19 +6,28 @@ import Control.Monad
 
 import Model
 import Render
+import Sound
 
 data State = State {
     now :: IO Time,
     model :: Model,
-    window_size :: Size
+    window_size :: Size,
+    sounds :: SoundState
 }
 
+soundFiles =
+   [ "/tmp/samples/Hi-Hats/Hi-Hat1.wav"
+   , "/tmp/samples/Snare Drums/Snare 4.wav"
+   , "/tmp/samples/Kick Drums/Kick1.wav"
+   ]
+
 main = do
-    let m = test_model
+    let m = test_model{m_channels=[0..length soundFiles-1]}
     let width = 50 * m_stepRange m
     let height = 50 * (length (m_channels m))
 
     SDL.init [SDL.InitEverything]
+    sstate <- initSound soundFiles
     vinfo <- SDL.getVideoInfo
     SDL.glSetAttribute SDL.glRedSize 8
     SDL.glSetAttribute SDL.glGreenSize 8
@@ -30,8 +39,10 @@ main = do
     t0 <- getClockTime
  
     let (m',actions) = nextEvent m
-    stv <- newIORef (State (tnow t0) m' (Size (fi width) (fi height)))
+    stv <- newIORef (State (tnow t0) m' (Size (fi width) (fi height)) sstate)
     mainLoop (m_clock m',actions) stv
+    endSound sstate
+    SDL.quit
 
 setVideoMode width height =
     SDL.setVideoMode width height 32 [SDL.OpenGL,SDL.Resizable]
@@ -58,6 +69,7 @@ mainLoop (t1,actions) stv = do
           mouseClick stv x y
           redraw                 
       SDL.VideoExpose -> redraw
+      (SDL.KeyDown  SDL.Keysym{SDL.symKey=SDL.SDLK_ESCAPE}) -> return True
       SDL.Quit -> return True
       _ -> return False
     when (not finished) (mainLoop (t1',actions') stv)
@@ -70,7 +82,9 @@ mainLoop (t1,actions) stv = do
 processActions stv actions = do
     mapM_ doAction actions
   where
-    doAction a@(Play _) = print a
+    doAction (Play c) = do
+       st <- readIORef stv
+       playSound (sounds st) c
     doAction Repaint = display stv
     doAction FlipBuffer = SDL.glSwapBuffers
 
