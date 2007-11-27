@@ -2,12 +2,18 @@ import Graphics.Rendering.OpenGL
 import qualified Graphics.UI.SDL as SDL
 import Data.IORef
 import System.Time
+import System.Environment (getArgs)
 import Control.Monad
 
 import Model
 import Render
 import Sound
 
+data Config = Config {
+    c_samples :: [FilePath],
+    c_steps :: Int
+    } deriving (Read,Show)
+    
 data State = State {
     now :: IO Time,
     model :: Model,
@@ -15,19 +21,19 @@ data State = State {
     sounds :: SoundState
 }
 
-soundFiles =
-   [ "/tmp/samples/Hi-Hats/Hi-Hat1.wav"
-   , "/tmp/samples/Snare Drums/Snare 4.wav"
-   , "/tmp/samples/Kick Drums/Kick1.wav"
-   ]
-
 main = do
-    let m = test_model{m_channels=[0..length soundFiles-1]}
+    args <- getArgs
+    config <- (liftM read.readFile) (args !! 0)  :: IO Config
+
+    let m = defaultModel{
+        m_channels=[0..length (c_samples config)-1],
+        m_stepRange=c_steps config
+        }
     let width = 50 * m_stepRange m
     let height = 50 * (length (m_channels m))
 
     SDL.init [SDL.InitEverything]
-    sstate <- initSound soundFiles
+    sstate <- initSound (c_samples config)
     vinfo <- SDL.getVideoInfo
     SDL.glSetAttribute SDL.glRedSize 8
     SDL.glSetAttribute SDL.glGreenSize 8

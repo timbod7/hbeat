@@ -54,22 +54,10 @@ chooseActions = foldr f Nothing
                                      | t2 < t1 = Just ev2
                                      | otherwise = Just (t1,a1++a2)
 
-test_model = Model {
+defaultModel = Model {
     m_channels = [0..3],
     m_stepRange = 16,
-    m_triggers = Set.fromList [
-        (0,0),
-        (4,0),
-                 (10,1),
-                 (10,2),
-                 (10,3),
-        (8,0),
-        (12,0),
-                 (14,1),
-                 (14,2),
-                 (14,3),
-                 (15,3)
-    ],
+    m_triggers = Set.fromList [],
     m_stepTime = 150,
     m_refreshTime = 25,
     m_repaintOffset = (-5),
