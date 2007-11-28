@@ -35,8 +35,8 @@ geometry (Size w h) m = Geometry {
     edgeMargin = 10
     gap = 10
 
-render :: Size -> Model -> IO ()
-render sz m = do
+render :: Size -> Time -> Model -> IO ()
+render sz t m = do
     drawTimeMarker
     mapM_ drawButton (allTriggers m)
   where 
@@ -59,7 +59,6 @@ render sz m = do
         w = bwidth+gap
         y =  em - gap/2
         h = fi channels*(bheight+gap)
-        t = m_clock m
 
     drawButton :: (StepID,ChannelID) -> IO ()
     drawButton (s,c) = if active
@@ -74,10 +73,10 @@ render sz m = do
     bcolor1 = Color3 0 0.5 0.5
     bcolor2a = Color3 0.0 0.8 0.8
     bcolor2b = Color3 1.0 0.5 0.5
-    bcolorf s = if t >= 0 && t <= fade
-                  then blendc (fi t / fi fade) bcolor2a bcolor2b
+    bcolorf s = if tx >= 0 && tx <= fade
+                  then blendc (fi tx / fi fade) bcolor2a bcolor2b
                   else bcolor2a
-      where t = (m_clock m `mod` period) - s * stepTime
+      where tx = (t `mod` period) - s * stepTime
             fade = stepTime * 4
 
     (bwidth,bheight) = (g_bwidth g, g_bheight g)

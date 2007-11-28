@@ -17,8 +17,7 @@ data Model = Model {
 
     m_stepTime :: TimeInterval,
     m_refreshTime :: TimeInterval,
-    m_repaintOffset :: TimeInterval,
-    m_clock :: Time
+    m_repaintOffset :: TimeInterval
 }
    deriving (Show)
 
@@ -27,14 +26,13 @@ data Action = Repaint
             | Play ChannelID
    deriving (Show,Eq)
 
-nextEvent :: Model -> (Model,[Action])
-nextEvent m = (m{m_clock=now'},actions)
+nextEvent :: Time -> Model -> (Time,[Action])
+nextEvent now m = (now',actions)
 
   where
     (now',actions) = fromJust $ chooseActions [ nextRepaint,
                                                 nextRefresh,
                                                 nextTriggers ]
-    now = m_clock m
     nextRepaint = next (m_refreshTime m) (m_repaintOffset m) (const [Repaint])
     nextRefresh = next (m_refreshTime m) 0 (const [FlipBuffer])
     nextTriggers = next (m_stepTime m)  0 getTriggers
@@ -59,13 +57,12 @@ defaultModel = Model {
     m_stepRange = 16,
     m_triggers = Set.fromList [],
     m_stepTime = 150,
-    m_refreshTime = 25,
-    m_repaintOffset = (-5),
-    m_clock = (-10)
+    m_refreshTime = 20,
+    m_repaintOffset = (-5)
 }
 
-events :: Model -> [ (Time,[Action]) ]
-events m = let (m',a) = nextEvent m in (m_clock m',a):events m'
+events :: Time -> Model -> [ (Time,[Action]) ]
+events t0 m = let (t,as) = nextEvent t0 m in (t,as):events t m
 
 allTriggers :: Model -> [Trigger]
 allTriggers m = [(s,c) | s <- [0..steps-1], c <- [0..channels-1]]

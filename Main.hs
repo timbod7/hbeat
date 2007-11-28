@@ -43,26 +43,25 @@ main = do
     setVideoMode width height
 
     t0 <- getClockTime
- 
-    let (m',actions) = nextEvent m
-    stv <- newIORef (State (tnow t0) m' (Size (fi width) (fi height)) sstate)
-    mainLoop (m_clock m',actions) stv
+    let clock = tnow t0
+    t <- clock
+
+    let (t',actions) = nextEvent t m
+    stv <- newIORef (State clock m (Size (fi width) (fi height)) sstate)
+    mainLoop (t,actions) stv
     endSound sstate
     SDL.quit
 
 setVideoMode width height =
     SDL.setVideoMode width height 32 [SDL.OpenGL,SDL.Resizable]
 
-mainLoop (t1,actions) stv = do
+mainLoop :: (Time,[Action]) -> IORef State -> IO ()
+mainLoop (ta,actions) stv = do
     st <- readIORef stv
-    t2 <- now st
-    (t1',actions') <-
-      if (t1 - t2 <= 0)
-        then do processActions st actions
-                let (m',actions') = nextEvent (model st)
-                writeIORef stv st{model=m'}
-                return (m_clock m',actions')
-        else return (t1,actions)
+    t <- now st
+    when (t >= ta) $ do
+        processActions st actions
+        mainLoop (nextEvent ta (model st)) stv
 
     SDL.delay 10
     ev <- SDL.pollEvent
@@ -78,7 +77,7 @@ mainLoop (t1,actions) stv = do
       (SDL.KeyDown  SDL.Keysym{SDL.symKey=SDL.SDLK_ESCAPE}) -> return True
       SDL.Quit -> return True
       _ -> return False
-    when (not finished) (mainLoop (t1',actions') stv)
+    when (not finished) (mainLoop (ta,actions) stv)
   where
     redraw st = do
       display st
@@ -100,6 +99,7 @@ mouseClick stv x y = do
     writeIORef stv st{model=m'}
     
 display st = do
+    t <- now st
     let sz@(Size wWidth wHeight) = window_size st
     viewport $= (Position 0 0, sz)
     matrixMode $= Projection
@@ -107,7 +107,7 @@ display st = do
     ortho2D 0 (fi wWidth) (fi wHeight) 0
     clear [ColorBuffer]
     preservingMatrix $ do
-        render sz (model st)
+        render sz t (model st)
     flush
 
 tnow :: ClockTime -> IO Time
