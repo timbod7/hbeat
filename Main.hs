@@ -58,7 +58,7 @@ mainLoop (t1,actions) stv = do
     t2 <- now st
     (t1',actions') <-
       if (t1 - t2 <= 0)
-        then do processActions stv actions
+        then do processActions st actions
                 let (m',actions') = nextEvent (model st)
                 writeIORef stv st{model=m'}
                 return (m_clock m',actions')
@@ -70,46 +70,36 @@ mainLoop (t1,actions) stv = do
       (SDL.VideoResize w h) -> do
           modifyIORef stv (\st -> st{window_size=(Size (fi w) (fi h))})
           setVideoMode w h
-          redraw
+          redraw st
       (SDL.MouseButtonDown x y SDL.ButtonLeft) -> do
           mouseClick stv x y
-          redraw                 
-      SDL.VideoExpose -> redraw
+          redraw st
+      SDL.VideoExpose -> redraw st
       (SDL.KeyDown  SDL.Keysym{SDL.symKey=SDL.SDLK_ESCAPE}) -> return True
       SDL.Quit -> return True
       _ -> return False
     when (not finished) (mainLoop (t1',actions') stv)
   where
-    redraw = do
-      display stv
+    redraw st = do
+      display st
       SDL.glSwapBuffers
       return False
 
-processActions stv actions = do
+processActions st actions = do
     mapM_ doAction actions
   where
-    doAction (Play c) = do
-       st <- readIORef stv
-       playSound (sounds st) c
-    doAction Repaint = display stv
+    doAction (Play c) = playSound (sounds st) c
+    doAction Repaint = display st
     doAction FlipBuffer = SDL.glSwapBuffers
-
 
 mouseClick stv x y = do
     st <- readIORef stv
     let m0 = model st
     let g = geometry (window_size st) m0
-    let m' = foldr (bfn g) m0 (allTriggers m0)
+    let m' = click (Vertex2 (fi x) (fi y)) g m0 
     writeIORef stv st{model=m'}
-  where
-    p = Vertex2 (fi x) (fi y)
-    bfn :: Geometry -> Trigger -> Model -> Model
-    bfn g t m = if inBox p (g_bbox g t)
-                    then updateTrigger not t m
-                    else m
     
-display stv = do
-    st <- readIORef stv
+display st = do
     let sz@(Size wWidth wHeight) = window_size st
     viewport $= (Position 0 0, sz)
     matrixMode $= Projection

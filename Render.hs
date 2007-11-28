@@ -112,3 +112,9 @@ inBox :: Point -> Rect -> Bool
 inBox (Vertex2 x y) (Vertex2 x0 y0, Vertex2 x1 y1)  = 
     (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1)
 
+click:: Point -> Geometry -> Model -> Model
+click p g m0 = foldr (bfn g) m0 (allTriggers m0)
+  where
+    bfn g t m = if inBox p (g_bbox g t)
+                    then updateTrigger not t m
+                    else m
