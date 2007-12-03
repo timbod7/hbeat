@@ -56,12 +56,10 @@ setVideoMode width height =
     SDL.setVideoMode width height 32 [SDL.OpenGL,SDL.Resizable]
 
 mainLoop :: (Time,[Action]) -> IORef State -> IO ()
-mainLoop (ta,actions) stv = do
+mainLoop nexta stv = do
     st <- readIORef stv
     t <- now st
-    when (t >= ta) $ do
-        processActions st actions
-        mainLoop (nextEvent ta (model st)) stv
+    nexta' <- processActions t nexta st
 
     SDL.delay 10
     ev <- SDL.pollEvent
@@ -73,30 +71,42 @@ mainLoop (ta,actions) stv = do
       (SDL.MouseButtonDown x y SDL.ButtonLeft) -> do
           mouseClick stv x y
           redraw st
+      (SDL.MouseButtonDown _ _ SDL.ButtonWheelUp) -> modifySpeed (+5)
+      (SDL.MouseButtonDown _ _ SDL.ButtonWheelDown) -> modifySpeed ((-)5)
       SDL.VideoExpose -> redraw st
       (SDL.KeyDown  SDL.Keysym{SDL.symKey=SDL.SDLK_ESCAPE}) -> return True
       SDL.Quit -> return True
       _ -> return False
-    when (not finished) (mainLoop (ta,actions) stv)
+    when (not finished) (mainLoop nexta' stv)
   where
     redraw st = do
       display st
       SDL.glSwapBuffers
       return False
 
-processActions st actions = do
-    mapM_ doAction actions
+    modifySpeed adj = do
+      updateModel stv (\m -> m{m_stepTime=adj (m_stepTime m)})
+      return True
+      
+processActions t nexta@(ta,actions) st = do
+    if (t >= ta) 
+      then do
+        mapM_ doAction actions
+        processActions t (nextEvent ta (model st)) st
+      else return nexta
   where
     doAction (Play c) = playSound (sounds st) c
     doAction Repaint = display st
     doAction FlipBuffer = SDL.glSwapBuffers
 
-mouseClick stv x y = do
-    st <- readIORef stv
-    let m0 = model st
-    let g = geometry (window_size st) m0
-    let m' = click (Vertex2 (fi x) (fi y)) g m0 
-    writeIORef stv st{model=m'}
+mouseClick stv x y = modifyIORef stv uf
+  where
+    uf st = st{model=click (Vertex2 (fi x) (fi y)) g m}
+      where
+        m = model st
+        g = geometry (window_size st) m
+
+updateModel stv mf = modifyIORef stv (\st -> st{model=mf (model st)})
     
 display st = do
     t <- now st
