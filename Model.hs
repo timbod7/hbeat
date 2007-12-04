@@ -3,17 +3,21 @@ module Model where
 import qualified Data.Set as Set
 import Data.Maybe
 
-type ChannelID = Int
+type LoopID = Int
 type StepID = Int
+type ChannelID = Int
 type Time = Int
 type TimeInterval = Int
 
-type Trigger = (StepID,ChannelID)
+type Trigger = (LoopID,StepID,ChannelID)
 
 data Model = Model {
     m_channels :: [ChannelID],
     m_stepRange :: StepID,
+    m_loopRange :: LoopID,
+
     m_triggers :: Set.Set Trigger,
+    m_loop :: LoopID, 
 
     m_stepTime :: TimeInterval,
     m_refreshTime :: TimeInterval,
@@ -37,7 +41,8 @@ nextEvent now m = (now',actions)
     nextRefresh = next (m_refreshTime m) 0 (const [FlipBuffer])
     nextTriggers = next (m_stepTime m)  0 getTriggers
 
-    getTriggers si = [Play cid | cid <- m_channels m, Set.member (si `mod`m_stepRange m,cid) (m_triggers m)]
+    getTriggers si = [Play cid | cid <- m_channels m, 
+                      Set.member (m_loop m, si `mod`m_stepRange m,cid) (m_triggers m)]
 
     next :: TimeInterval -> TimeInterval -> (Int -> [Action]) -> (Time,[Action])
     next period offset afn = (i * period + offset,afn i)
@@ -55,7 +60,11 @@ chooseActions = foldr f Nothing
 defaultModel = Model {
     m_channels = [0..3],
     m_stepRange = 16,
+    m_loopRange = 4,
+
     m_triggers = Set.fromList [],
+    m_loop = 0,
+
     m_stepTime = 150,
     m_refreshTime = 20,
     m_repaintOffset = (-5)
@@ -64,10 +73,9 @@ defaultModel = Model {
 events :: Time -> Model -> [ (Time,[Action]) ]
 events t0 m = let (t,as) = nextEvent t0 m in (t,as):events t m
 
-allTriggers :: Model -> [Trigger]
-allTriggers m = [(s,c) | s <- [0..steps-1], c <- [0..channels-1]]
+activeTriggers :: Model -> [Trigger]
+activeTriggers m = [(m_loop m,s,c) | s <- [0..m_stepRange m-1], c <- [0..channels-1]]
   where 
-    steps = m_stepRange m
     channels = length (m_channels m)
 
 updateTrigger :: (Bool -> Bool) -> Trigger -> Model -> Model
