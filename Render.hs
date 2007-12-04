@@ -20,7 +20,7 @@ data Geometry = Geometry {
 geometry :: Size -> Model -> Geometry
 geometry (Size w h) m = Geometry {
     g_tbox = boxfn,
-    g_lbox = \l -> boxfn (l,channels), 
+    g_lbox = \l -> boxfn ((m_stepRange m - m_loopRange m) `div` 2 + l,channels), 
     g_bwidth = bw,
     g_bheight = bh,
     g_edgeMargin = edgeMargin,
