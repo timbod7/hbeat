@@ -18,7 +18,7 @@ data Config = Config {
 data World = World {
     now :: IO Time,
     model :: Model,
-    window_size :: GL.Size,
+    geom :: Geometry,
     sounds :: SoundState,
     pending_event :: (Time,[Action])
 }
@@ -52,7 +52,7 @@ main = do
     t <- clock
 
     let ev = nextEvent t m
-    let w = World clock m (GL.Size (fi width) (fi height)) sstate ev
+    let w = World clock m (geometry (GL.Size (fi width) (fi height)) m) sstate ev
     evalStateT mainLoop w
     endSound sstate
     SDL.quit
@@ -69,7 +69,7 @@ mainLoop = do
     ev <- liftIO $ SDL.delay 10 >> SDL.pollEvent
     finished <- case ev of
       (SDL.VideoResize w h) -> do
-          modify (\st -> st{window_size=(GL.Size (fi w) (fi h))})
+          modify (\st -> st{geom=geometry (GL.Size (fi w) (fi h)) (model st)})
           liftIO $ setVideoMode w h
           redraw
       (SDL.MouseButtonDown x y SDL.ButtonLeft) -> mouseClick x y >> redraw
@@ -108,24 +108,21 @@ processActions t  = do
 
 mouseClick x y = modify uf
   where
-    uf st = st{model=click (GL.Vertex2 (fi x) (fi y)) g m}
-      where
-        m = model st
-        g = geometry (window_size st) m
+    uf st = st{model=click (GL.Vertex2 (fi x) (fi y)) (geom st) (model st)}
 
 updateModel mf = modify (\st -> st{model=mf (model st)})
 
 display :: World -> Bool -> IO ()
 display st swapBuffers = do
         t <- now st
-        let sz@(GL.Size wWidth wHeight) = window_size st
+        let sz@(GL.Size wWidth wHeight) = g_size (geom st)
         GL.viewport $= (GL.Position 0 0, sz)
         GL.matrixMode $= GL.Projection
         GL.loadIdentity
         GL.ortho2D 0 (fi wWidth) (fi wHeight) 0
         GL.clear [GL.ColorBuffer]
         GL.preservingMatrix $ do
-            render sz t (model st)
+            render (geom st) t (model st)
         GL.flush
         when swapBuffers SDL.glSwapBuffers
 

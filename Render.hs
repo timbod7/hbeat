@@ -9,6 +9,7 @@ type Point = Vertex2 GLdouble
 type Rect = (Point,Point)
 
 data Geometry = Geometry {
+    g_size :: Size,
     g_tbox :: (StepID,ChannelID) -> Rect,
     g_lbox :: LoopID -> Rect,
     g_bwidth :: GLdouble,
@@ -18,7 +19,8 @@ data Geometry = Geometry {
 }
 
 geometry :: Size -> Model -> Geometry
-geometry (Size w h) m = Geometry {
+geometry sz@(Size w h) m = Geometry {
+    g_size = sz,
     g_tbox = boxfn,
     g_lbox = \l -> boxfn ((m_stepRange m - m_loopRange m) `div` 2 + l,channels), 
     g_bwidth = bw,
@@ -38,8 +40,8 @@ geometry (Size w h) m = Geometry {
     gap = 10
     channels = length (m_channels m)
 
-render :: Size -> Time -> Model -> IO ()
-render sz t m = do
+render :: Geometry -> Time -> Model -> IO ()
+render g t m = do
     drawTimeMarker
     mapM_ drawButton (activeTriggers m)
     mapM_ drawLoopButton [0..m_loopRange m - 1]
@@ -49,7 +51,6 @@ render sz t m = do
     channels = length (m_channels m)
     period = steps * stepTime
 
-    g = geometry sz m
     em = g_edgeMargin g
     gap = g_gap g
 
