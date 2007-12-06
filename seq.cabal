@@ -2,7 +2,7 @@ Name:           Seq
 Version:        0.1
 License:        AllRightsReserved
 Author:         Tim Docker
-Build-Depends:  base, containers, old-time, OpenGL, SDL, SDL-mixer
+Build-Depends:  base, containers, old-time, OpenGL, SDL, SDL-mixer, mtl
 Synopsis:       A simple step sequencer GUI.
 
 Executable:     seq
