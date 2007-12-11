@@ -42,18 +42,38 @@ geometry sz@(Size w h) m = Geometry {
 
 render :: Geometry -> Time -> Model -> IO ()
 render g t m = do
-    drawTimeMarker
-    mapM_ drawButton (activeTriggers m)
-    mapM_ drawLoopButton [0..m_loopRange m - 1]
+    drawTimeMarker 
+    drawTriggerButtons
+    drawLoopButtons
   where 
     steps = m_stepRange m
     stepTime = m_stepTime m
-    channels = length (m_channels m)
     period = steps * stepTime
 
     em = g_edgeMargin g
     gap = g_gap g
+    channels = length (m_channels m)
 
+    drawTriggerButtons =
+      case loopTransition t m of
+        Nothing -> do
+          mapM_ drawButton (loopTriggers (m_loop m) m)
+        Just (k,ploop) -> do
+          let size = (g_bheight g + gap) * fi channels 
+          preservingMatrix $ do
+              translate (Vector3 0 (k * size) 0 :: Vector3 Double)
+              mapM_ drawButton (loopTriggers ploop m)
+              translate (Vector3 0 (-size) 0 :: Vector3 Double)
+              mapM_ drawButton (loopTriggers (m_loop m) m)
+
+    loopTransition t m = do
+        (t0,lid) <- m_prevLoop m
+        let td = t - t0
+        let tt = 4 * m_stepTime m
+        if  td < tt
+            then Just (fi td/fi tt,lid)
+            else Nothing
+       
     drawTimeMarker :: IO ()
     drawTimeMarker = do
         fillRoundedRect mcolor radius box
@@ -73,10 +93,13 @@ render g t m = do
         bbox = g_tbox g (s,c)
         active = Set.member (l,s,c) (m_triggers m)
 
-    drawLoopButton l = do
-        if l == m_loop m
-          then fillRoundedRect bcolor2a radius bbox
-          else lineRoundedRect bcolor1 radius  bbox
+    drawLoopButtons = mapM_ drawLoopButton [0..m_loopRange m - 1]
+
+    drawLoopButton l = if l == m_loop m
+            then fillRoundedRect bcolor2a radius bbox
+            else do
+              fillRoundedRect (Color3 0 0 0) radius bbox
+              lineRoundedRect bcolor1 radius  bbox
       where
         bbox = g_lbox g l
 
@@ -123,15 +146,15 @@ inBox :: Point -> Rect -> Bool
 inBox (Vertex2 x y) (Vertex2 x0 y0, Vertex2 x1 y1)  = 
     (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1)
 
-click:: Point -> Geometry -> Model -> Model
-click p g = (loops.triggers)
+click:: Time -> Point -> Geometry -> Model -> Model
+click t p g = (loops.triggers)
   where
-    triggers m = foldr (tfn g) m (activeTriggers m)
+    triggers m = foldr (tfn g) m (loopTriggers (m_loop m) m)
     tfn g t@(l,s,c) m = if inBox p (g_tbox g (s,c))
                           then updateTrigger not t m
                           else m
 
     loops m = foldr (lfn g) m [0..m_loopRange m-1]
     lfn g l m = if inBox p (g_lbox g l)
-                then m{m_loop=l}
+                then m{m_loop=l,m_prevLoop=Just (t,m_loop m)}
                 else m

@@ -72,7 +72,7 @@ mainLoop = do
           modify (\st -> st{geom=geometry (GL.Size (fi w) (fi h)) (model st)})
           liftIO $ setVideoMode w h
           redraw
-      (SDL.MouseButtonDown x y SDL.ButtonLeft) -> mouseClick x y >> redraw
+      (SDL.MouseButtonDown x y SDL.ButtonLeft) -> mouseClick t x y >> redraw
       (SDL.MouseButtonDown _ _ SDL.ButtonWheelUp) -> modifySpeed (+5)
       (SDL.MouseButtonDown _ _ SDL.ButtonWheelDown) -> modifySpeed ((-)5)
       SDL.VideoExpose -> redraw
@@ -106,9 +106,9 @@ processActions t  = do
     doAction st Repaint = display st False
     doAction st FlipBuffer = SDL.glSwapBuffers
 
-mouseClick x y = modify uf
+mouseClick t x y = modify uf
   where
-    uf st = st{model=click (GL.Vertex2 (fi x) (fi y)) (geom st) (model st)}
+    uf st = st{model=click t (GL.Vertex2 (fi x) (fi y)) (geom st) (model st)}
 
 updateModel mf = modify (\st -> st{model=mf (model st)})
 

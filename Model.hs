@@ -21,7 +21,10 @@ data Model = Model {
 
     m_stepTime :: TimeInterval,
     m_refreshTime :: TimeInterval,
-    m_repaintOffset :: TimeInterval
+    m_repaintOffset :: TimeInterval,
+
+    -- transient stuff
+    m_prevLoop :: Maybe (Time,LoopID)
 }
    deriving (Show)
 
@@ -67,14 +70,16 @@ defaultModel = Model {
 
     m_stepTime = 150,
     m_refreshTime = 20,
-    m_repaintOffset = (-5)
+    m_repaintOffset = (-5),
+
+    m_prevLoop = Nothing
 }
 
 events :: Time -> Model -> [ (Time,[Action]) ]
 events t0 m = let (t,as) = nextEvent t0 m in (t,as):events t m
 
-activeTriggers :: Model -> [Trigger]
-activeTriggers m = [(m_loop m,s,c) | s <- [0..m_stepRange m-1], c <- [0..channels-1]]
+loopTriggers :: LoopID -> Model -> [Trigger]
+loopTriggers l m = [(l,s,c) | s <- [0..m_stepRange m-1], c <- [0..channels-1]]
   where 
     channels = length (m_channels m)
 
