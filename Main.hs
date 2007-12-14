@@ -122,7 +122,7 @@ display st swapBuffers = do
         GL.ortho2D 0 (fi wWidth) (fi wHeight) 0
         GL.clear [GL.ColorBuffer]
         GL.preservingMatrix $ do
-            render (geom st) t (model st)
+            render (picture (geom st) t (model st))
         GL.flush
         when swapBuffers SDL.glSwapBuffers
 

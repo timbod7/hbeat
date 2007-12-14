@@ -40,11 +40,16 @@ geometry sz@(Size w h) m = Geometry {
     gap = 10
     channels = length (m_channels m)
 
-render :: Geometry -> Time -> Model -> IO ()
-render g t m = do
-    drawTimeMarker 
-    drawTriggerButtons
-    drawLoopButtons
+data Picture = LineRect (Color3 Double) GLdouble Rect
+             | FillRect (Color3 Double) GLdouble Rect
+             | WithTranslation (Vector3 Double) Picture
+             | Over Picture Picture
+
+overlay :: [Picture] -> Picture
+overlay = foldl1 Over
+
+picture :: Geometry -> Time -> Model -> Picture
+picture g t m = overlay [drawLoopButtons,drawTriggerButtons,drawTimeMarker]
   where 
     steps = m_stepRange m
     stepTime = m_stepTime m
@@ -56,15 +61,16 @@ render g t m = do
 
     drawTriggerButtons =
       case loopTransition t m of
-        Nothing -> do
-          mapM_ drawButton (loopTriggers (m_loop m) m)
-        Just (k,ploop) -> do
-          let size = (g_bheight g + gap) * fi channels 
-          preservingMatrix $ do
-              translate (Vector3 0 (k * size) 0 :: Vector3 Double)
-              mapM_ drawButton (loopTriggers ploop m)
-              translate (Vector3 0 (-size) 0 :: Vector3 Double)
-              mapM_ drawButton (loopTriggers (m_loop m) m)
+        Nothing -> buttons
+        Just (k,ploop) ->
+          let size = (g_bheight g + gap) * fi channels
+              pbuttons = overlay (map drawButton (loopTriggers ploop m))  in
+              WithTranslation (Vector3 0 (k * size) 0) pbuttons
+              `Over`
+              WithTranslation (Vector3 0 (k * size -size) 0) buttons
+      where
+        buttons = overlay (map drawButton (loopTriggers (m_loop m) m))
+
 
     loopTransition t m = do
         (t0,lid) <- m_prevLoop m
@@ -74,9 +80,7 @@ render g t m = do
             then Just (fi td/fi tt,lid)
             else Nothing
        
-    drawTimeMarker :: IO ()
-    drawTimeMarker = do
-        fillRoundedRect mcolor radius box
+    drawTimeMarker = FillRect mcolor radius box
       where
         box = (Vertex2 x y, Vertex2 (x+w) (y+h))
         x,y :: GLdouble
@@ -85,21 +89,19 @@ render g t m = do
         y =  em - gap/2
         h = fi channels*(bheight+gap)
 
-    drawButton :: Trigger -> IO ()
     drawButton (l,s,c) = if active
-                           then fillRoundedRect (bcolorf s) radius bbox
-                           else lineRoundedRect bcolor1 radius bbox
+                           then FillRect (bcolorf s) radius bbox
+                           else LineRect bcolor1 radius bbox
       where
         bbox = g_tbox g (s,c)
         active = Set.member (l,s,c) (m_triggers m)
 
-    drawLoopButtons = mapM_ drawLoopButton [0..m_loopRange m - 1]
+    drawLoopButtons = overlay (map drawLoopButton [0..m_loopRange m - 1])
 
     drawLoopButton l = if l == m_loop m
-            then fillRoundedRect bcolor2a radius bbox
-            else do
-              fillRoundedRect (Color3 0 0 0) radius bbox
-              lineRoundedRect bcolor1 radius  bbox
+            then FillRect bcolor2a radius bbox
+            else LineRect bcolor1 radius  bbox `Over`
+                 FillRect (Color3 0 0 0) radius bbox
       where
         bbox = g_lbox g l
 
@@ -123,21 +125,6 @@ width, height :: Rect -> GLdouble
 width  (Vertex2 v1 _,Vertex2 v2 _) = v2 - v1
 height (Vertex2 _ v1,Vertex2 _ v2) = v2 - v1
 
-fillRoundedRect c r rect = renderPrimitive Polygon (roundedRectPath c r rect)
-lineRoundedRect c r rect = renderPrimitive LineLoop (roundedRectPath c r rect)
-
-roundedRectPath :: Color3 GLdouble -> GLdouble -> Rect -> IO ()
-roundedRectPath c r (Vertex2 x1 y1,Vertex2 x2 y2) = do
-        color $ c
-        vertex $ Vertex2 (x1+r) y1
-        vertex $ Vertex2 (x2-r) y1
-        vertex $ Vertex2 x2 (y1+r)
-        vertex $ Vertex2 x2 (y2-r)
-        vertex $ Vertex2 (x2-r) y2
-        vertex $ Vertex2 (x1+r) y2
-        vertex $ Vertex2 x1 (y2-r)
-        vertex $ Vertex2 x1 (y1+r)
-
 blendc :: GLdouble -> Color3 GLdouble -> Color3 GLdouble -> Color3 GLdouble
 blendc f (Color3 r1 g1 b1) (Color3 r2 g2 b2) =
   let f' = 1-f in Color3 (f*r1+f'*r2) (f*g1+f'*g2) (f*b1+f'*b2)
@@ -158,3 +145,22 @@ click t p g = (loops.triggers)
     lfn g l m = if inBox p (g_lbox g l)
                 then m{m_loop=l,m_prevLoop=Just (t,m_loop m)}
                 else m
+
+-- Here's the impure code that actually makes the openGL calls.
+render :: Picture -> IO ()
+render (FillRect c r rect) = renderPrimitive Polygon (roundedRectPath c r rect)
+render (LineRect c r rect) = renderPrimitive LineLoop (roundedRectPath c r rect)
+render (WithTranslation v p) = preservingMatrix $ (translate v >> render p)
+render (Over p1 p2 ) = render p2 >> render p1
+
+roundedRectPath :: Color3 GLdouble -> GLdouble -> Rect -> IO ()
+roundedRectPath c r (Vertex2 x1 y1,Vertex2 x2 y2) = do
+        color $ c
+        vertex $ Vertex2 (x1+r) y1
+        vertex $ Vertex2 (x2-r) y1
+        vertex $ Vertex2 x2 (y1+r)
+        vertex $ Vertex2 x2 (y2-r)
+        vertex $ Vertex2 (x2-r) y2
+        vertex $ Vertex2 (x1+r) y2
+        vertex $ Vertex2 x1 (y2-r)
+        vertex $ Vertex2 x1 (y1+r)
