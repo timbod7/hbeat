@@ -75,7 +75,7 @@ picture g t m = overlay [drawLoopButtons,drawTriggerButtons,drawTimeMarker]
     loopTransition t m = do
         (t0,lid) <- m_prevLoop m
         let td = t - t0
-        let tt = 4 * m_stepTime m
+        let tt = 2 * m_stepTime m
         if  td < tt
             then Just (fi td/fi tt,lid)
             else Nothing

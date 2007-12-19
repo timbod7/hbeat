@@ -69,7 +69,7 @@ defaultModel = Model {
     m_loop = 0,
 
     m_stepTime = 150,
-    m_refreshTime = 20,
+    m_refreshTime = 10,
     m_repaintOffset = (-5),
 
     m_prevLoop = Nothing
