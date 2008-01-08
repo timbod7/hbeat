@@ -54,6 +54,7 @@ picture g t m = overlay [drawLoopButtons,drawTriggerButtons,drawTimeMarker]
     steps = m_stepRange m
     stepTime = m_stepTime m
     period = steps * stepTime
+    periodi = periodti t m
 
     em = g_edgeMargin g
     gap = g_gap g
@@ -84,7 +85,7 @@ picture g t m = overlay [drawLoopButtons,drawTriggerButtons,drawTimeMarker]
       where
         box = (Vertex2 x y, Vertex2 (x+w) (y+h))
         x,y :: GLdouble
-        x =  em + fi (t `mod` period) / fi period * (bwidth+gap) * fi steps
+        x =  em + fi periodi / fi period * (bwidth+gap) * fi steps
         w = bwidth+gap
         y =  em - gap/2
         h = fi channels*(bheight+gap)
@@ -113,7 +114,7 @@ picture g t m = overlay [drawLoopButtons,drawTriggerButtons,drawTimeMarker]
     bcolorf s = if tx >= 0 && tx <= fade
                   then blendc (fi tx / fi fade) bcolor2a bcolor2b
                   else bcolor2a
-      where tx = (t `mod` period) - s * stepTime
+      where tx = periodi - s * stepTime
             fade = stepTime * 4
 
     (bwidth,bheight) = (g_bwidth g, g_bheight g)

@@ -65,7 +65,6 @@ mainLoop = do
     st <- get
     t <- liftIO $ now st
     processActions t
-
     ev <- liftIO $ SDL.delay 10 >> SDL.pollEvent
     finished <- case ev of
       (SDL.VideoResize w h) -> do
@@ -73,8 +72,8 @@ mainLoop = do
           liftIO $ setVideoMode w h
           redraw
       (SDL.MouseButtonDown x y SDL.ButtonLeft) -> mouseClick t x y >> redraw
-      (SDL.MouseButtonDown _ _ SDL.ButtonWheelUp) -> modifySpeed (+5)
-      (SDL.MouseButtonDown _ _ SDL.ButtonWheelDown) -> modifySpeed ((-)5)
+      (SDL.MouseButtonDown _ _ SDL.ButtonWheelUp) -> modifySpeed t (\v -> v+5)
+      (SDL.MouseButtonDown _ _ SDL.ButtonWheelDown) -> modifySpeed t (\v -> if v > 50 then v-5 else v)
       SDL.VideoExpose -> redraw
       (SDL.KeyDown  SDL.Keysym{SDL.symKey=SDL.SDLK_ESCAPE}) -> return True
       SDL.Quit -> return True
@@ -87,10 +86,8 @@ mainLoop = do
       liftIO $ display st True
       return False
 
-    modifySpeed :: (Int->Int) -> GState Bool
-    modifySpeed adj = do
-      updateModel (\m -> m{m_stepTime=adj (m_stepTime m)})
-      return True
+    modifySpeed :: Time -> (Int->Int) -> GState Bool
+    modifySpeed t adj = updateModel (updateStepTime t adj) >> return False
 
 processActions :: Time -> GState ()
 processActions t  = do

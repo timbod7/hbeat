@@ -20,6 +20,7 @@ data Model = Model {
     m_loop :: LoopID, 
 
     m_stepTime :: TimeInterval,
+    m_stepOffset :: TimeInterval,
     m_refreshTime :: TimeInterval,
     m_repaintOffset :: TimeInterval,
 
@@ -42,7 +43,7 @@ nextEvent now m = (now',actions)
                                                 nextTriggers ]
     nextRepaint = next (m_refreshTime m) (m_repaintOffset m) (const [Repaint])
     nextRefresh = next (m_refreshTime m) 0 (const [FlipBuffer])
-    nextTriggers = next (m_stepTime m)  0 getTriggers
+    nextTriggers = next (m_stepTime m)  (m_stepOffset m) getTriggers
 
     getTriggers si = [Play cid | cid <- m_channels m, 
                       Set.member (m_loop m, si `mod`m_stepRange m,cid) (m_triggers m)]
@@ -69,6 +70,7 @@ defaultModel = Model {
     m_loop = 0,
 
     m_stepTime = 150,
+    m_stepOffset = 0,
     m_refreshTime = 10,
     m_repaintOffset = (-5),
 
@@ -89,3 +91,15 @@ updateTrigger ufn t m = if ufn (Set.member t ts)
                             else m{m_triggers=Set.delete t ts}
   where
     ts = m_triggers m    
+
+periodti :: Time -> Model -> TimeInterval
+periodti t m = (t - m_stepOffset m) `mod` period 
+  where
+    period = m_stepTime m * m_stepRange m
+
+updateStepTime :: Time -> (TimeInterval->TimeInterval) -> Model -> Model
+updateStepTime t adj m = m{m_stepTime=newst,m_stepOffset=newoff}
+  where
+    newoff = t - ((t - m_stepOffset m) * newst `div` oldst)
+    newst = adj oldst
+    oldst = m_stepTime m
