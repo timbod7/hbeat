@@ -46,6 +46,7 @@ main = do
     SDL.glSetAttribute SDL.glDepthSize 16
     SDL.glSetAttribute SDL.glDoubleBuffer 1
     setVideoMode width height
+    SDL.setCaption "hBeat" "hBeat"
 
     t0 <- getClockTime
     let clock = tnow t0
