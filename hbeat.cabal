@@ -1,5 +1,5 @@
 Name: hbeat
-Version: 0.1.1
+Version: 0.1.2
 
 License: BSD3
 License-file: LICENSE
@@ -13,6 +13,7 @@ Description: A toy step sequencer program written using OpenGL and the SDL libra
              Configuration (including the audio samples used) is controlled via an external file.
 Homepage: http://www.dockerz.net/software/hbeat.html
 
+Build-Type: Simple
 Executable: hbeat
 Build-Depends:  base, containers, old-time, OpenGL, SDL, SDL-mixer, mtl
 Main-Is: Main.hs
